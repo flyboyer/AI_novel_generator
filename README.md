@@ -1,0 +1,2 @@
+# AI_novel_generator
+一个用于ai生成小说的web工具，基于本地ollama部署的模型进行小说生成。
