@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 短篇小说生成器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Poppins', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+        h1 {
+            font-family: 'Poppins', 'Noto Sans SC', sans-serif;
+            color: #fff;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+        form {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        form:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+        input[type="text"]:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        button {
+            background-color: #3498db;
+            color: #fff;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s ease;
+            font-family: 'Poppins', 'Noto Sans SC', sans-serif;
+            font-weight: 700;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #loading, #error { 
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+        }
+        #loading {
+            background-color: rgba(243, 156, 18, 0.8);
+            color: #fff;
+        }
+        #error {
+            background-color: rgba(231, 76, 60, 0.8);
+            color: #fff;
+        }
+        #novel {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 30px;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 18px;
+            color: #2c3e50;
+            font-family: 'Noto Sans SC', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI 短篇小说生成器</h1>
+    <form id="novelForm">
+        <label for="model">选择 AI 模型：</label>
+        <select id="model" name="model" required>
+            <option value="">正在加载模型列表...</option>
+        </select>
+        
+        <label for="theme">请输入小说主题：</label>
+        <input type="text" id="theme" name="theme" required placeholder="例如：未来世界、爱情故事、科幻冒险...">
+        <button type="submit">生成小说</button>
+    </form>
+    <div id="loading">正在生成小说，请稍候...</div>
+    <div id="error"></div>
+    <div id="novel"></div>
+
+    <script>
+        // 获取可用模型列表
+        fetch('/models')
+            .then(response => response.json())
+            .then(models => {
+                console.log('获取到的模型列表:', models);
+                const select = document.getElementById('model');
+                select.innerHTML = ''; // 清空现有选项
+                if (models.length === 0) {
+                    console.log('模型列表为空');
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "没有可用的模型";
+                    select.appendChild(option);
+                } else {
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = "";
+                    defaultOption.textContent = "请选择一个模型";
+                    select.appendChild(defaultOption);
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('获取模型列表失败:', error);
+                const select = document.getElementById('model');
+                select.innerHTML = ''; // 清空现有选项
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "获取模型失败";
+                select.appendChild(option);
+            });
+
+        document.getElementById('novelForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const novelDiv = document.getElementById('novel');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            
+            novelDiv.innerHTML = '';
+            novelDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+
+            fetch('/', {
+                method: 'POST',
+                body: new FormData(this)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                novelDiv.style.display = 'block';
+                
+                function read() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            loadingDiv.style.display = 'none';
+                            return;
+                        }
+                        const text = decoder.decode(value);
+                        novelDiv.innerHTML += text;
+                        novelDiv.scrollTop = novelDiv.scrollHeight;
+                        read();
+                    });
+                }
+                
+                read();
+            })
+            .catch(error => {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = error.message || '发生错误，请稍后再试';
+                errorDiv.style.display = 'block';
+            });
+        });
+    </script>
+</body>
+</html>
